@@ -1,0 +1,399 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Premium Classic Radio</title>
+<script src="https://cdn.jsdelivr.net/npm/hls.js@latest"></script>
+<style>
+body {
+    font-family: 'Courier New', monospace;
+    background: linear-gradient(135deg, #2c3e50, #34495e);
+    color: #ecf0f1;
+    margin: 0;
+    padding: 20px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    min-height: 100vh;
+    perspective: 1000px;
+}
+.radio {
+    width: 450px;
+    height: 320px; /* TALLER for volume bar */
+    background: linear-gradient(145deg, #8b4513, #a0522d);
+    border-radius: 15px;
+    box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 5px 10px rgba(255,255,255,0.1);
+    position: relative;
+    transform-style: preserve-3d;
+    transform: rotateX(5deg) rotateY(-5deg);
+    transition: transform 0.5s ease;
+}
+.radio:hover {
+    transform: rotateX(0deg) rotateY(0deg);
+}
+.radio::before {
+    content: '';
+    position: absolute;
+    top: -8px;
+    left: -8px;
+    right: -8px;
+    bottom: -8px;
+    background: linear-gradient(145deg, #654321, #8b4513);
+    border-radius: 18px;
+    z-index: -1;
+    box-shadow: 0 30px 60px rgba(0,0,0,0.7);
+}
+.speaker {
+    position: absolute;
+    top: 20px;
+    left: 20px;
+    width: 160px;
+    height: 160px;
+    background: radial-gradient(circle, #000, #333);
+    border-radius: 50%;
+    border: 6px solid #654321;
+    box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
+    animation: classicalVibrate 1s infinite alternate;
+    animation-play-state: paused;
+}
+.speaker.playing {
+    animation-play-state: running;
+}
+@keyframes classicalVibrate {
+    0% { transform: translate(0, 0) scale(1); }
+    50% { transform: translate(1px, -1px) scale(1.02); }
+    100% { transform: translate(-1px, 1px) scale(1); }
+}
+.speaker::after {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    width: 60px;
+    height: 60px;
+    background: radial-gradient(circle, #666, #000);
+    border-radius: 50%;
+    box-shadow: 0 0 10px rgba(255,255,255,0.2);
+}
+.controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    width: 220px;
+    height: 280px;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-around;
+    align-items: center;
+}
+.frequency-display {
+    background: #000;
+    color: #0f0;
+    font-family: 'Courier New', monospace;
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 5px;
+    border: 1px solid #654321;
+    text-align: center;
+    margin-bottom: 10px;
+}
+
+/* PERFECT VOLUME KNOB + BAR */
+.volume-section {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 8px;
+    margin-right: 20px;
+}
+.volume-knob {
+    width: 60px;
+    height: 60px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #6b6b6b, #2b2b2b);
+    border: 3px solid #654321;
+    box-shadow:
+        inset -4px -4px 6px rgba(255,255,255,0.25),
+        inset 4px 4px 6px rgba(0,0,0,0.85),
+        0 5px 15px rgba(0,0,0,0.95);
+    position: relative;
+    cursor: grab;
+    transition: transform 0.3s cubic-bezier(0.25, 0.46, 0.45, 0.94);
+}
+.volume-knob:active { cursor: grabbing; }
+.volume-knob .pointer {
+    position: absolute;
+    top: 8px;
+    left: 50%;
+    width: 4px;
+    height: 14px;
+    background: #ffd27d;
+    transform: translateX(-50%);
+    border-radius: 2px;
+}
+.volume-knob .ticks {
+    position: absolute;
+    inset: 8px;
+    border-radius: 50%;
+    border: 2px dotted rgba(255,255,255,0.2);
+}
+.volume-knob .ticks::before,
+.volume-knob .ticks::after {
+    content: '';
+    position: absolute;
+    width: 2px;
+    height: 6px;
+    background: rgba(255,255,255,0.3);
+    left: 50%;
+    top: 0;
+    transform: translateX(-50%);
+}
+.volume-knob .ticks::after {
+    top: auto;
+    bottom: 0;
+}
+
+/* NEW CLASSIC VOLUME BAR */
+.volume-bar {
+    width: 120px;
+    height: 8px;
+    background: linear-gradient(90deg, #333, #666);
+    border-radius: 4px;
+    border: 2px solid #654321;
+    box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+    position: relative;
+    overflow: hidden;
+}
+.volume-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #ffd27d, #ffaa00);
+    border-radius: 2px;
+    transition: width 0.3s ease;
+    box-shadow: 0 0 8px rgba(255,210,125,0.6);
+}
+.volume-thumb {
+    position: absolute;
+    top: 50%;
+    width: 16px;
+    height: 16px;
+    background: radial-gradient(circle, #ffd27d, #ffaa00);
+    border: 2px solid #654321;
+    border-radius: 50%;
+    transform: translate(-50%, -50%);
+    cursor: pointer;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.4);
+}
+
+.label {
+    font-size: 10px;
+    text-transform: uppercase;
+    text-align: center;
+    color: #c9b37e;
+    letter-spacing: 1px;
+}
+
+.play-knob {
+    width: 78px;
+    height: 78px;
+    border-radius: 50%;
+    background: radial-gradient(circle, #a67c52, #8b5e3c);
+    border: 4px solid #654321;
+    box-shadow:
+        inset -5px -5px 8px rgba(255,255,255,0.25),
+        inset 5px 5px 8px rgba(0,0,0,0.85),
+        0 6px 18px rgba(0,0,0,0.95);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: transform 0.4s ease;
+    position: relative;
+}
+.play-knob::before {
+    content: '▶';
+    font-size: 24px;
+    color: #fff;
+    position: absolute;
+}
+.play-knob.rotate {
+    transform: rotate(180deg);
+}
+.play-knob.rotate::before {
+    content: '⏸';
+}
+</style>
+</head>
+<body>
+<div class="radio">
+    <div class="speaker" id="speaker"></div>
+    <div class="controls">
+        <div class="frequency-display">FM 88.5</div>
+        <div class="play-knob" id="playKnob"></div>
+        <div class="volume-section">
+            <div class="volume-knob" id="volumeKnob">
+                <div class="pointer"></div>
+                <div class="ticks"></div>
+            </div>
+            <div class="volume-bar" id="volumeBar">
+                <div class="volume-fill" id="volumeFill"></div>
+                <div class="volume-thumb" id="volumeThumb"></div>
+            </div>
+            <div class="label">VOL</div>
+        </div>
+    </div>
+</div>
+<audio id="audio"></audio>
+<script>
+const audio = document.getElementById('audio');
+const audioSrc = 'https://air.pc.cdn.bitgravity.com/air/live/pbaudio001/playlist.m3u8';
+const playKnob = document.getElementById('playKnob');
+const volumeKnob = document.getElementById('volumeKnob');
+const volumeBar = document.getElementById('volumeBar');
+const volumeFill = document.getElementById('volumeFill');
+const volumeThumb = document.getElementById('volumeThumb');
+const speaker = document.getElementById('speaker');
+
+let hls;
+if (Hls.isSupported()) {
+    hls = new Hls();
+    hls.loadSource(audioSrc);
+    hls.attachMedia(audio);
+} else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+    audio.src = audioSrc;
+}
+
+let playing = false;
+let currentVolume = 0.5;
+let isDraggingKnob = false;
+let isDraggingBar = false;
+
+// PLAY TOGGLE
+playKnob.addEventListener('click', () => {
+    if (!playing) {
+        audio.play().catch(e => console.log('Play failed:', e));
+        playing = true;
+        playKnob.classList.add('rotate');
+        speaker.classList.add('playing');
+    } else {
+        audio.pause();
+        playing = false;
+        playKnob.classList.remove('rotate');
+        speaker.classList.remove('playing');
+    }
+});
+
+// VOLUME KNOB DRAG
+volumeKnob.addEventListener('mousedown', startKnobDrag);
+volumeKnob.addEventListener('touchstart', handleKnobTouchStart, { passive: false });
+
+function startKnobDrag(e) {
+    isDraggingKnob = true;
+    updateKnobVolume(e);
+    document.addEventListener('mousemove', updateKnobVolume);
+    document.addEventListener('mouseup', stopKnobDrag);
+}
+
+function handleKnobTouchStart(e) {
+    e.preventDefault();
+    isDraggingKnob = true;
+    updateKnobVolume(e.touches[0]);
+    document.addEventListener('touchmove', handleKnobTouchMove, { passive: false });
+    document.addEventListener('touchend', stopKnobDrag);
+}
+
+function handleKnobTouchMove(e) {
+    e.preventDefault();
+    updateKnobVolume(e.touches[0]);
+}
+
+function updateKnobVolume(e) {
+    if (!isDraggingKnob) return;
+    
+    const rect = volumeKnob.getBoundingClientRect();
+    const centerX = rect.left + rect.width / 2;
+    const centerY = rect.top + rect.height / 2;
+    
+    const dx = (e.clientX || e.clientX) - centerX;
+    const dy = (e.clientY || e.clientY) - centerY;
+    let angle = Math.atan2(dy, dx) * (180 / Math.PI);
+    
+    if (angle < 0) angle += 360;
+    currentVolume = Math.max(0, Math.min(1, (angle + 135) / 270));
+    
+    updateAllVolume();
+}
+
+function stopKnobDrag() {
+    isDraggingKnob = false;
+    document.removeEventListener('mousemove', updateKnobVolume);
+    document.removeEventListener('touchmove', handleKnobTouchMove);
+}
+
+// VOLUME BAR DRAG
+volumeThumb.addEventListener('mousedown', startBarDrag);
+volumeBar.addEventListener('click', handleBarClick);
+volumeThumb.addEventListener('touchstart', handleBarTouchStart, { passive: false });
+
+function startBarDrag(e) {
+    isDraggingBar = true;
+    updateBarVolume(e);
+    document.addEventListener('mousemove', updateBarVolume);
+    document.addEventListener('mouseup', stopBarDrag);
+}
+
+function handleBarTouchStart(e) {
+    e.preventDefault();
+    isDraggingBar = true;
+    updateBarVolume(e.touches[0]);
+    document.addEventListener('touchmove', handleBarTouchMove, { passive: false });
+    document.addEventListener('touchend', stopBarDrag);
+}
+
+function handleBarTouchMove(e) {
+    e.preventDefault();
+    updateBarVolume(e.touches[0]);
+}
+
+function handleBarClick(e) {
+    updateBarVolume(e);
+}
+
+function updateBarVolume(e) {
+    const rect = volumeBar.getBoundingClientRect();
+    const barWidth = rect.width;
+    let clickX = (e.clientX || e.clientX) - rect.left;
+    
+    if (isDraggingBar) clickX = Math.max(0, Math.min(barWidth, clickX));
+    else clickX = Math.max(8, Math.min(barWidth - 8, clickX)); // Thumb size padding
+    
+    currentVolume = clickX / barWidth;
+    updateAllVolume();
+}
+
+function stopBarDrag() {
+    isDraggingBar = false;
+    document.removeEventListener('mousemove', updateBarVolume);
+    document.removeEventListener('touchmove', handleBarTouchMove);
+}
+
+// UPDATE ALL VOLUME CONTROLS
+function updateAllVolume() {
+    audio.volume = currentVolume;
+    
+    // Update knob
+    const deg = currentVolume * 270 - 135;
+    volumeKnob.style.transform = `rotate(${deg}deg)`;
+    
+    // Update bar
+    volumeFill.style.width = `${currentVolume * 100}%`;
+    const thumbX = currentVolume * 100;
+    volumeThumb.style.left = `${thumbX}%`;
+}
+
+// Initialize
+updateAllVolume();
+</script>
+</body>
+</html>
