@@ -20,7 +20,7 @@ body {
 }
 .radio {
     width: 450px;
-    height: 320px; /* TALLER for volume bar */
+    height: 380px;
     background: linear-gradient(145deg, #8b4513, #a0522d);
     border-radius: 15px;
     box-shadow: 0 20px 40px rgba(0,0,0,0.5), inset 0 5px 10px rgba(255,255,255,0.1);
@@ -82,7 +82,7 @@ body {
     top: 20px;
     right: 20px;
     width: 220px;
-    height: 280px;
+    height: 340px;
     display: flex;
     flex-direction: column;
     justify-content: space-around;
@@ -98,6 +98,35 @@ body {
     border: 1px solid #654321;
     text-align: center;
     margin-bottom: 10px;
+    width: 100%;
+}
+
+/* Channel Selector */
+.channel-selector {
+    display: flex;
+    gap: 5px;
+    margin-bottom: 10px;
+}
+.channel-btn {
+    background: #654321;
+    color: #c9b37e;
+    border: 1px solid #8b4513;
+    padding: 6px 12px;
+    border-radius: 4px;
+    cursor: pointer;
+    font-family: 'Courier New', monospace;
+    font-size: 10px;
+    transition: all 0.3s ease;
+}
+.channel-btn:hover {
+    background: #8b5a2b;
+    color: #ffd27d;
+}
+.channel-btn.active {
+    background: #ffd27d;
+    color: #000;
+    border-color: #ffaa00;
+    box-shadow: 0 0 8px rgba(255,210,125,0.6);
 }
 
 /* PERFECT VOLUME KNOB + BAR */
@@ -229,7 +258,12 @@ body {
 <div class="radio">
     <div class="speaker" id="speaker"></div>
     <div class="controls">
-        <div class="frequency-display">FM 88.5</div>
+        <div class="frequency-display" id="frequencyDisplay">FM 88.5</div>
+        <div class="channel-selector">
+            <button class="channel-btn active" data-channel="0">CH 1</button>
+            <button class="channel-btn" data-channel="1">CH 2</button>
+            <button class="channel-btn" data-channel="2">CH 3</button>
+        </div>
         <div class="play-knob" id="playKnob"></div>
         <div class="volume-section">
             <div class="volume-knob" id="volumeKnob">
@@ -246,28 +280,91 @@ body {
 </div>
 <audio id="audio"></audio>
 <script>
+// Channel Configuration
+const channels = [
+    {
+        name: 'Channel 1',
+        frequency: 'FM 88.5',
+        url: 'https://air.pc.cdn.bitgravity.com/air/live/pbaudio001/playlist.m3u8'
+    },
+    {
+        name: 'Channel 2',
+        frequency: 'FM 92.3',
+        url: 'https://airhlspush.pc.cdn.bitgravity.com/httppush/hlspbaudio002/hlspbaudio00264kbps.m3u8'
+    },
+    {
+        name: 'Channel 3',
+        frequency: 'FM 95.1',
+        url: 'https://air.pc.cdn.bitgravity.com/air/live/pbaudio003/playlist.m3u8'
+    }
+];
+
 const audio = document.getElementById('audio');
-const audioSrc = 'https://air.pc.cdn.bitgravity.com/air/live/pbaudio001/playlist.m3u8';
 const playKnob = document.getElementById('playKnob');
 const volumeKnob = document.getElementById('volumeKnob');
 const volumeBar = document.getElementById('volumeBar');
 const volumeFill = document.getElementById('volumeFill');
 const volumeThumb = document.getElementById('volumeThumb');
 const speaker = document.getElementById('speaker');
+const frequencyDisplay = document.getElementById('frequencyDisplay');
+const channelButtons = document.querySelectorAll('.channel-btn');
 
 let hls;
-if (Hls.isSupported()) {
-    hls = new Hls();
-    hls.loadSource(audioSrc);
-    hls.attachMedia(audio);
-} else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
-    audio.src = audioSrc;
-}
-
 let playing = false;
 let currentVolume = 0.5;
+let currentChannel = 0;
 let isDraggingKnob = false;
 let isDraggingBar = false;
+
+// Initialize with first channel
+loadChannel(0);
+
+// Channel Selection
+channelButtons.forEach(btn => {
+    btn.addEventListener('click', () => {
+        const channelIndex = parseInt(btn.dataset.channel);
+        switchChannel(channelIndex);
+    });
+});
+
+function switchChannel(index) {
+    currentChannel = index;
+    const channel = channels[index];
+    
+    // Update UI
+    channelButtons.forEach((btn, i) => {
+        btn.classList.toggle('active', i === index);
+    });
+    frequencyDisplay.textContent = channel.frequency;
+    
+    // Pause current playback
+    if (playing) {
+        audio.pause();
+        playing = false;
+        playKnob.classList.remove('rotate');
+        speaker.classList.remove('playing');
+    }
+    
+    // Load new channel
+    loadChannel(index);
+}
+
+function loadChannel(index) {
+    const channel = channels[index];
+    const audioSrc = channel.url;
+    
+    if (hls) {
+        hls.destroy();
+    }
+    
+    if (Hls.isSupported()) {
+        hls = new Hls();
+        hls.loadSource(audioSrc);
+        hls.attachMedia(audio);
+    } else if (audio.canPlayType('application/vnd.apple.mpegurl')) {
+        audio.src = audioSrc;
+    }
+}
 
 // PLAY TOGGLE
 playKnob.addEventListener('click', () => {
@@ -366,7 +463,7 @@ function updateBarVolume(e) {
     let clickX = (e.clientX || e.clientX) - rect.left;
     
     if (isDraggingBar) clickX = Math.max(0, Math.min(barWidth, clickX));
-    else clickX = Math.max(8, Math.min(barWidth - 8, clickX)); // Thumb size padding
+    else clickX = Math.max(8, Math.min(barWidth - 8, clickX));
     
     currentVolume = clickX / barWidth;
     updateAllVolume();
@@ -382,11 +479,9 @@ function stopBarDrag() {
 function updateAllVolume() {
     audio.volume = currentVolume;
     
-    // Update knob
     const deg = currentVolume * 270 - 135;
     volumeKnob.style.transform = `rotate(${deg}deg)`;
     
-    // Update bar
     volumeFill.style.width = `${currentVolume * 100}%`;
     const thumbX = currentVolume * 100;
     volumeThumb.style.left = `${thumbX}%`;
